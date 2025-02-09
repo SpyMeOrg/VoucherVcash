@@ -1,7 +1,5 @@
 import { BinanceOrder } from '../types/orders';
 
-declare const CryptoJS: any;
-
 export class BinanceService {
     private baseUrl = 'https://api.binance.com';
     private proxyUrl = 'https://cors-proxy.fringe.zone/';
@@ -48,7 +46,7 @@ export class BinanceService {
                 recvWindow: this.recvWindow.toString()
             });
 
-            const signature = CryptoJS.HmacSHA256(queryParams.toString(), this.secretKey).toString();
+            const signature = window.CryptoJS.HmacSHA256(queryParams.toString(), this.secretKey).toString();
             queryParams.append('signature', signature);
 
             const url = `${this.proxyUrl}${this.baseUrl}/sapi/v1/c2c/orderMatch/listUserOrderHistory?${queryParams.toString()}`;
