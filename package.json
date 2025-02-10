@@ -8,7 +8,7 @@
     "build": "tsc && vite build",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
-    "vercel-build": "npm run build"
+    "vercel-build": "vite build"
   },
   "dependencies": {
     "@headlessui/react": "^1.7.17",
@@ -21,21 +21,21 @@
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "tesseract.js": "^6.0.0",
-    "xlsx": "^0.18.5"
+    "xlsx": "^0.18.5",
+    "@vitejs/plugin-react": "^4.3.4",
+    "vite": "^5.0.8",
+    "typescript": "^5.2.2"
   },
   "devDependencies": {
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
     "@typescript-eslint/eslint-plugin": "^6.14.0",
     "@typescript-eslint/parser": "^6.14.0",
-    "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.16",
     "eslint": "^8.55.0",
     "eslint-plugin-react-hooks": "^4.6.0",
     "eslint-plugin-react-refresh": "^0.4.5",
     "postcss": "^8.4.32",
-    "tailwindcss": "^3.4.0",
-    "typescript": "^5.2.2",
-    "vite": "^5.0.8"
+    "tailwindcss": "^3.4.0"
   }
 }
