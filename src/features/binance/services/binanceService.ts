@@ -1,5 +1,11 @@
 import { BinanceOrder } from '../types/orders';
 
+declare global {
+    interface Window {
+        CryptoJS: any;
+    }
+}
+
 export class BinanceService {
     private baseUrl = 'https://api.binance.com';
     private proxyUrl = 'https://cors-proxy.fringe.zone/';

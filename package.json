@@ -23,7 +23,6 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
-    "@types/crypto-browserify": "^3.12.0",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
     "@typescript-eslint/eslint-plugin": "^6.14.0",
