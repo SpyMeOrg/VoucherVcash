@@ -6,6 +6,14 @@ declare global {
     }
 }
 
+export interface P2POrderParams {
+    startTime?: number;
+    endTime?: number;
+    page?: number;
+    rows?: number;
+    tradeType?: string;  // 'BUY' | 'SELL'
+}
+
 export class BinanceService {
     private baseUrl = 'https://api.binance.com';
     private proxyUrl = 'https://cors-proxy.fringe.zone/';
@@ -42,7 +50,7 @@ export class BinanceService {
         }
     }
 
-    async getP2POrders() {
+    async getP2POrders(params: P2POrderParams = {}) {
         try {
             const timestamp = Date.now();
             await this.validateTimestamp(timestamp);
@@ -51,6 +59,27 @@ export class BinanceService {
                 timestamp: timestamp.toString(),
                 recvWindow: this.recvWindow.toString()
             });
+            
+            // إضافة معلمات إضافية إذا كانت موجودة
+            if (params.startTime) {
+                queryParams.append('startTimestamp', params.startTime.toString());
+            }
+            
+            if (params.endTime) {
+                queryParams.append('endTimestamp', params.endTime.toString());
+            }
+            
+            if (params.page) {
+                queryParams.append('page', params.page.toString());
+            }
+            
+            if (params.rows) {
+                queryParams.append('rows', params.rows.toString());
+            }
+            
+            if (params.tradeType) {
+                queryParams.append('tradeType', params.tradeType);
+            }
 
             const signature = window.CryptoJS.HmacSHA256(queryParams.toString(), this.secretKey).toString();
             queryParams.append('signature', signature);
@@ -98,50 +127,47 @@ export class BinanceService {
 
     private transformOrders(data: any[]): BinanceOrder[] {
         return data.map(order => {
-            if (!order || typeof order !== 'object') {
-                console.warn('تم تخطي أوردر غير صالح:', order);
-                return null;
+            const cryptoAmount = this.parseNumber(order.amount);
+            const isTakerOrder = order.commission === 0;
+            const fee = isTakerOrder ? 0.05 : this.parseNumber(order.commission);
+            
+            // حساب اليوزد الفعلي بناءً على نوع الأوردر
+            let actualUsdt = cryptoAmount; // القيمة الافتراضية
+            
+            if (isTakerOrder) {
+                // أوردرات التيكر (Taker)
+                if (order.tradeType === 'BUY') {
+                    // في حالة الشراء: نخصم الرسوم (0.05)
+                    actualUsdt = cryptoAmount - 0.05;
+                } else {
+                    // في حالة البيع: نضيف الرسوم (0.05)
+                    actualUsdt = cryptoAmount + 0.05;
+                }
+            } else {
+                // أوردرات الميكر (Maker)
+                if (order.tradeType === 'BUY') {
+                    // في حالة الشراء: نخصم الرسوم
+                    actualUsdt = cryptoAmount - fee;
+                } else {
+                    // في حالة البيع: نضيف الرسوم
+                    actualUsdt = cryptoAmount + fee;
+                }
             }
 
-            try {
-                // تأكد من وجود البيانات الأساسية
-                if (!order.orderNumber || !order.totalPrice || !order.amount || !order.unitPrice) {
-                    console.warn('بيانات الأوردر غير مكتملة:', order);
-                    return null;
-                }
-
-                const type = (order.tradeType || '').toString().toUpperCase();
-                if (type !== 'BUY' && type !== 'SELL') {
-                    console.warn('نوع الأوردر غير صالح:', type);
-                    return null;
-                }
-
-                // معالجة الرسوم - إذا كان taker نضع 0.05 وإلا نستخدم القيمة من الـ API
-                const isTaker = order.orderSource === 'TAKER';
-                const fee = isTaker ? 0.05 : (order.commission ? Number(order.commission) : 0.05);
-
-                // حساب الكمية الصافية (بعد خصم الرسوم)
-                const cryptoAmount = this.parseNumber(order.amount);
-                const netAmount = type === 'BUY' ? 
-                    cryptoAmount - fee :  // في الشراء: نخصم الرسوم من الكمية
-                    cryptoAmount + fee;   // في البيع: نضيف الرسوم على الكمية
-
-                return {
-                    orderId: order.orderNumber,
-                    type: type as 'BUY' | 'SELL',
-                    fiatAmount: this.parseNumber(order.totalPrice),
-                    price: this.parseNumber(order.unitPrice),
-                    cryptoAmount: cryptoAmount,
-                    fee: fee,
-                    netAmount: netAmount,
-                    status: this.mapOrderStatus(order.orderStatus),
-                    createTime: order.createTime
-                };
-            } catch (error) {
-                console.error('خطأ في تحويل الأوردر:', error, order);
-                return null;
-            }
-        }).filter(order => order !== null) as BinanceOrder[];
+            const transformedOrder: BinanceOrder = {
+                orderId: order.orderNumber,
+                type: order.tradeType as 'BUY' | 'SELL',
+                fiatAmount: this.parseNumber(order.totalPrice),
+                price: this.parseNumber(order.unitPrice),
+                cryptoAmount: cryptoAmount,
+                fee: fee,
+                netAmount: cryptoAmount,
+                actualUsdt: actualUsdt,
+                status: this.mapOrderStatus(order.orderStatus),
+                createTime: order.createTime
+            };
+            return transformedOrder;
+        });
     }
 
     private parseNumber(value: any): number {
