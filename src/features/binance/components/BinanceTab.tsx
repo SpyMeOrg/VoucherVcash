@@ -152,7 +152,9 @@ export const BinanceTab: React.FC = () => {
             
             // إضافة معلمات التاريخ إذا تم تحديدها
             if (startDate) {
-                params.startTime = new Date(startDate).getTime();
+                const startDateTime = new Date(startDate);
+                startDateTime.setHours(0, 0, 0, 0);
+                params.startTime = startDateTime.getTime();
             }
             
             if (endDate) {
