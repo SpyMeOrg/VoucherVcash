@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { BinanceService, P2POrderParams } from '../services/binanceService';
 import { BinanceOrder, SavedCredential } from '../types/orders';
+import * as XLSX from 'xlsx';
 
 export const BinanceTab: React.FC = () => {
     const [orders, setOrders] = useState<BinanceOrder[]>([]);
@@ -29,7 +30,7 @@ export const BinanceTab: React.FC = () => {
     const [currentPage, setCurrentPage] = useState<number>(1);
     const [rowsPerPage, setRowsPerPage] = useState<number>(50);
     const [hasMoreData, setHasMoreData] = useState<boolean>(true);
-    const [isHistoricalSearch, setIsHistoricalSearch] = useState<boolean>(false);
+    const [] = useState<boolean>(false);
 
     // استرجاع المفاتيح المحفوظة عند تحميل المكون
     useEffect(() => {
@@ -236,6 +237,57 @@ export const BinanceTab: React.FC = () => {
             setFilteredOrders(filtered);
         }
     }, [orderStatus, orderFeeType, orders]);
+
+    // دالة تصدير البيانات إلى Excel
+    const handleExportToExcel = () => {
+        // إنشاء مصفوفة من البيانات المراد تصديرها
+        const exportData = filteredOrders.map((order, index) => ({
+            '#': index + 1,
+            'ID': order.orderId,
+            'Type': order.type === 'BUY' ? 'Buy' : 'Sell',
+            'EGP': order.fiatAmount.toFixed(2),
+            'Usdt B': order.cryptoAmount.toFixed(2),
+            'USDT': order.fee === 0 ? 
+                (order.type === 'BUY' ? 
+                    (order.cryptoAmount - 0.05).toFixed(2) : 
+                    (order.cryptoAmount + 0.05).toFixed(2)) : 
+                order.actualUsdt.toFixed(2),
+            'Price': order.fee === 0 ? 
+                (order.type === 'BUY' ? 
+                    (order.fiatAmount / (order.cryptoAmount - 0.05)).toFixed(2) : 
+                    (order.fiatAmount / (order.cryptoAmount + 0.05)).toFixed(2)) : 
+                (order.fiatAmount / order.actualUsdt).toFixed(2),
+            'Fees': order.fee === 0 ? '0.05 🔄' : order.fee.toFixed(2),
+            'Status': order.status,
+            'Date': new Date(order.createTime).toLocaleString('en-GB', { hour12: false })
+        }));
+
+        // إنشاء ورقة عمل جديدة
+        const worksheet = XLSX.utils.json_to_sheet(exportData);
+
+        // تعديل عرض الأعمدة
+        const columnWidths = [
+            { wch: 5 },  // #
+            { wch: 15 }, // ID
+            { wch: 8 },  // Type
+            { wch: 12 }, // EGP
+            { wch: 10 }, // Usdt B
+            { wch: 10 }, // USDT
+            { wch: 10 }, // Price
+            { wch: 8 },  // Fees
+            { wch: 12 }, // Status
+            { wch: 20 }  // Date
+        ];
+        worksheet['!cols'] = columnWidths;
+
+        // إنشاء كتاب عمل جديد
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'Orders');
+
+        // حفظ الملف
+        const fileName = `binance_orders_${new Date().toISOString().split('T')[0]}.xlsx`;
+        XLSX.writeFile(workbook, fileName);
+    };
 
     return (
         <div className="p-4">
@@ -566,8 +618,19 @@ export const BinanceTab: React.FC = () => {
             {/* عرض الأوردرات - يظهر فقط بعد جلب البيانات */}
             {filteredOrders.length > 0 && (
                 <div className="mt-4 overflow-x-auto" dir="ltr">
-                    <div className="mb-2 text-sm text-gray-600">
-                        تم العثور على {filteredOrders.length} أوردر
+                    <div className="mb-2 flex justify-between items-center">
+                        <span className="text-sm text-gray-600">
+                            تم العثور على {filteredOrders.length} أوردر
+                        </span>
+                        <button
+                            onClick={handleExportToExcel}
+                            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors duration-200 flex items-center gap-2"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            <span>تصدير إلى Excel</span>
+                        </button>
                     </div>
                     <table className="min-w-full bg-white">
                         <thead className="bg-gray-50">
