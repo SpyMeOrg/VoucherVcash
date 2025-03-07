@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { read, utils } from 'xlsx';
 import { exportToExcel } from './utils/excelExport';
 import { BinanceTab } from './features/binance/components/BinanceTab';
+import { AveragePriceTab } from './features/average-price/components/AveragePriceTab';
 
 interface CalculationResult {
   totalEGP: number;
@@ -34,7 +35,7 @@ export default function App() {
   const [result, setResult] = useState<CalculationResult | null>(null);
   // إضافة حالة لتخزين البيانات المستوردة
   const [importedData, setImportedData] = useState<ImportedRow[]>([]);
-  const [activeTab, setActiveTab] = useState<'calculator' | 'binance'>('calculator');
+  const [activeTab, setActiveTab] = useState<'calculator' | 'binance' | 'average-price'>('calculator');
 
   const calculateResults = () => {
     // التحقق من وجود مبالغ مدخلة فقط
@@ -293,7 +294,12 @@ export default function App() {
               >
                 Binance
               </button>
-              {/* يمكن إضافة المزيد من التبويبات هنا */}
+              <button
+                onClick={() => setActiveTab('average-price')}
+                className={`border-b-2 ${activeTab === 'average-price' ? 'border-blue-500 py-4 px-1 text-sm font-medium text-blue-600' : 'border-transparent py-4 px-1 text-sm font-medium text-gray-600 hover:text-blue-600'} whitespace-nowrap`}
+              >
+                حساب متوسط السعر
+              </button>
             </nav>
           </div>
         </div>
@@ -495,8 +501,10 @@ export default function App() {
               </div>
             </div>
           </div>
-        ) : (
+        ) : activeTab === 'binance' ? (
           <BinanceTab />
+        ) : (
+          <AveragePriceTab />
         )}
       </div>
 
