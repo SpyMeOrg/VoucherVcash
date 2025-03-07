@@ -4,17 +4,37 @@ import { BinanceOrder, SavedCredential } from '../types/orders';
 import * as XLSX from 'xlsx';
 
 export const BinanceTab: React.FC = () => {
-    const [orders, setOrders] = useState<BinanceOrder[]>([]);
+    const [orders, setOrders] = useState<BinanceOrder[]>(() => {
+        const savedOrders = localStorage.getItem('binanceOrders');
+        return savedOrders ? JSON.parse(savedOrders) : [];
+    });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [apiKey, setApiKey] = useState('');
-    const [secretKey, setSecretKey] = useState('');
-    const [startDate, setStartDate] = useState<string>('');
-    const [endDate, setEndDate] = useState<string>('');
-    const [orderType, setOrderType] = useState<'ALL' | 'BUY' | 'SELL'>('ALL');
-    const [orderStatus, setOrderStatus] = useState<'ALL' | 'COMPLETED' | 'CANCELLED'>('ALL');
-    const [orderFeeType, setOrderFeeType] = useState<'ALL' | 'MAKER' | 'TAKER'>('ALL');
-    const [filteredOrders, setFilteredOrders] = useState<BinanceOrder[]>([]);
+    const [apiKey, setApiKey] = useState(() => {
+        return localStorage.getItem('binanceApiKey') || '';
+    });
+    const [secretKey, setSecretKey] = useState(() => {
+        return localStorage.getItem('binanceSecretKey') || '';
+    });
+    const [startDate, setStartDate] = useState<string>(() => {
+        return localStorage.getItem('binanceStartDate') || '';
+    });
+    const [endDate, setEndDate] = useState<string>(() => {
+        return localStorage.getItem('binanceEndDate') || '';
+    });
+    const [orderType, setOrderType] = useState<'ALL' | 'BUY' | 'SELL'>(() => {
+        return (localStorage.getItem('binanceOrderType') as 'ALL' | 'BUY' | 'SELL') || 'ALL';
+    });
+    const [orderStatus, setOrderStatus] = useState<'ALL' | 'COMPLETED' | 'CANCELLED'>(() => {
+        return (localStorage.getItem('binanceOrderStatus') as 'ALL' | 'COMPLETED' | 'CANCELLED') || 'ALL';
+    });
+    const [orderFeeType, setOrderFeeType] = useState<'ALL' | 'MAKER' | 'TAKER'>(() => {
+        return (localStorage.getItem('binanceOrderFeeType') as 'ALL' | 'MAKER' | 'TAKER') || 'ALL';
+    });
+    const [filteredOrders, setFilteredOrders] = useState<BinanceOrder[]>(() => {
+        const savedFilteredOrders = localStorage.getItem('binanceFilteredOrders');
+        return savedFilteredOrders ? JSON.parse(savedFilteredOrders) : [];
+    });
     
     // إضافة حالات جديدة لنظام حفظ المفاتيح
     const [savedCredentials, setSavedCredentials] = useState<SavedCredential[]>([]);
@@ -31,6 +51,22 @@ export const BinanceTab: React.FC = () => {
     const [rowsPerPage, setRowsPerPage] = useState<number>(50);
     const [hasMoreData, setHasMoreData] = useState<boolean>(true);
     const [] = useState<boolean>(false);
+
+    // حفظ البيانات عند تغييرها
+    useEffect(() => {
+        localStorage.setItem('binanceOrders', JSON.stringify(orders));
+        localStorage.setItem('binanceFilteredOrders', JSON.stringify(filteredOrders));
+    }, [orders, filteredOrders]);
+
+    useEffect(() => {
+        localStorage.setItem('binanceApiKey', apiKey);
+        localStorage.setItem('binanceSecretKey', secretKey);
+        localStorage.setItem('binanceStartDate', startDate);
+        localStorage.setItem('binanceEndDate', endDate);
+        localStorage.setItem('binanceOrderType', orderType);
+        localStorage.setItem('binanceOrderStatus', orderStatus);
+        localStorage.setItem('binanceOrderFeeType', orderFeeType);
+    }, [apiKey, secretKey, startDate, endDate, orderType, orderStatus, orderFeeType]);
 
     // استرجاع المفاتيح المحفوظة عند تحميل المكون
     useEffect(() => {
@@ -98,7 +134,7 @@ export const BinanceTab: React.FC = () => {
         }
     };
 
-    // تعديل دالة الاتصال لتتحقق فقط من صحة المفاتيح دون جلب البيانات
+    // تعديل دالة الاتصال
     const handleConnect = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!apiKey || !secretKey) {
@@ -110,14 +146,10 @@ export const BinanceTab: React.FC = () => {
         setError(null);
 
         try {
-            // التحقق من صحة المفاتيح فقط عن طريق استدعاء دالة التحقق من وقت السيرفر
             const service = new BinanceService(apiKey, secretKey);
             await service.checkServerTime();
-            
-            // إذا نجح الاتصال، نعين حالة الاتصال إلى true
             setIsConnected(true);
-            setOrders([]);
-            setFilteredOrders([]);
+            // لا نقوم بتصفير الأوردرات عند الاتصال
         } catch (err) {
             console.error('خطأ في الاتصال:', err);
             setError(err instanceof Error ? err.message : 'حدث خطأ في الاتصال مع Binance');
@@ -242,6 +274,20 @@ export const BinanceTab: React.FC = () => {
 
     // دالة تصدير البيانات إلى Excel
     const handleExportToExcel = () => {
+        // حساب المجاميع
+        const totalEGP = filteredOrders.reduce((sum, order) => sum + order.fiatAmount, 0);
+        const totalUSDT = filteredOrders.reduce((sum, order) => {
+            if (order.fee === 0) {
+                return sum + (order.type === 'BUY' ? 
+                    (order.cryptoAmount - 0.05) : 
+                    (order.cryptoAmount + 0.05));
+            }
+            return sum + order.actualUsdt;
+        }, 0);
+        const totalUsdtB = filteredOrders.reduce((sum, order) => sum + order.cryptoAmount, 0);
+        const totalFees = filteredOrders.reduce((sum, order) => sum + (order.fee === 0 ? 0.05 : order.fee), 0);
+        const averagePrice = totalUSDT > 0 ? totalEGP / totalUSDT : 0;
+
         // إنشاء مصفوفة من البيانات المراد تصديرها
         const exportData = filteredOrders.map((order, index) => ({
             '#': index + 1,
@@ -263,6 +309,20 @@ export const BinanceTab: React.FC = () => {
             'Status': order.status,
             'Date': new Date(order.createTime).toLocaleString('en-GB', { hour12: false })
         }));
+
+        // إضافة صف المجاميع
+        exportData.push({
+            '#': exportData.length + 1,
+            'ID': 'Total',
+            'Type': '',
+            'EGP': totalEGP.toFixed(2),
+            'Usdt B': totalUsdtB.toFixed(2),
+            'USDT': totalUSDT.toFixed(2),
+            'Price': averagePrice.toFixed(2),
+            'Fees': totalFees.toFixed(2),
+            'Status': 'COMPLETED' as const,
+            'Date': ''
+        });
 
         // إنشاء ورقة عمل جديدة
         const worksheet = XLSX.utils.json_to_sheet(exportData);
